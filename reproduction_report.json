@@ -1,0 +1,30 @@
+{
+  "verified_utc": "2026-11-19T00:43:21.021388+00:00",
+  "public_repo": "https://github.com/wuyu112/IF-decision-inference",
+  "inference_commit": "40563a5304ad1842d4af67d857826867fd0bbb68",
+  "model_repo": "peng12345/IF-decision-27b",
+  "model_sha": "49cb2aea2b54cbaabf2344c5939d689d1d5178ce",
+  "clean_install": true,
+  "pip_check": true,
+  "versions": {
+    "python": "3.12.13",
+    "startlux-decide": "1.1.0",
+    "vllm": "0.31.0",
+    "transformers": "5.17.0",
+    "torch": "2.13.0+cu130"
+  },
+  "checks": {
+    "schema": true,
+    "original_option_keys": true,
+    "choice_equal": true,
+    "probability_normalization": true,
+    "noul_range": true
+  },
+  "max_absolute_probability_difference": 3.883154779008057e-05,
+  "per_question_difference": {
+    "route": 3.883154779008057e-05,
+    "urgent": 0.0
+  },
+  "tolerance": 0.0001,
+  "passed": true
+}
