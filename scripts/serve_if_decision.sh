@@ -14,8 +14,8 @@ while (($#)); do
   esac
 done
 [[ -n "$MODEL" ]] || { echo "--model is required" >&2; exit 2; }
-export STARTLUX_VLLM_MAX_NUM_SEQS=8
-exec startlux-decide serve \
+export IF_DECISION_VLLM_MAX_NUM_SEQS=8
+exec if-decision serve \
   --model "$MODEL" \
   --name IF-decision-27b-v1 \
   --host 127.0.0.1 \

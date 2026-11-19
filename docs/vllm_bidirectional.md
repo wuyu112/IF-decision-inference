@@ -2,7 +2,7 @@
 
 Instant folders were trained to read their prompt with bidirectional attention in the full-attention layers. Stock
 vLLM reads every prompt causally, so it would run such a folder as a different model, without any error. The plugin
-in `startlux_decide/vllm_plugin.py` makes vLLM (V1 engine) read these folders the way they were trained. It is
+in `if_decision/vllm_plugin.py` makes vLLM (V1 engine) read these folders the way they were trained. It is
 validated on vLLM 0.19.1 and 0.31.0 (see [vLLM versions](#vllm-versions)). Nothing in the installed vLLM is edited: the
 plugin patches classes when vLLM imports them.
 
@@ -20,8 +20,8 @@ The prompt end p of a request comes from its prompt token ids:
 |---|---|
 | ends with the empty think block `<think>\n\n</think>\n\n` (one-pass read-out) | L: the whole input is bidirectional |
 | otherwise | right after the `<think>\n` that follows the first `<\|im_start\|>assistant\n` (system turn, evidence, question, options, assistant header). The forced prefix, the thought, `</think>` and the read-out after it are causal |
-| `SamplingParams(extra_args={"startlux_prompt_end": p})`, or `"vllm_xargs": {"startlux_prompt_end": p}` in an OpenAI request | that p (0 = causal, L = all bidirectional) |
-| none of the above | an error (or `STARTLUX_PREFIX_BIDIR_UNMATCHED=causal` / `full`) |
+| `SamplingParams(extra_args={"if_decision_prompt_end": p})`, or `"vllm_xargs": {"if_decision_prompt_end": p}` in an OpenAI request | that p (0 = causal, L = all bidirectional) |
+| none of the above | an error (or `IF_DECISION_PREFIX_BIDIR_UNMATCHED=causal` / `full`) |
 
 On 570 test prompts per model the rule gave the same p as the transformers reference. A stray `<think>` inside a
 thought does not move p.
@@ -48,8 +48,8 @@ The extra work is the causal pass over the prompt rows, which is thrown away: +2
 ## Enable
 
 Install this package in the Python environment that runs vLLM (it declares the vLLM general plugin
-`startlux_prefix_bidir`) and set `STARTLUX_PREFIX_BIDIR=1`. Without the variable the plugin does nothing at all.
-`startlux-decide launch-vllm` does both and checks the result. Engine settings for a bidirectional folder (the plugin
+`if_decision_prefix_bidir`) and set `IF_DECISION_PREFIX_BIDIR=1`. Without the variable the plugin does nothing at all.
+`if-decision launch-vllm` does both and checks the result. Engine settings for a bidirectional folder (the plugin
 checks them at engine start and refuses to run otherwise):
 
 ```bash
@@ -61,18 +61,18 @@ attention backend must be FLASH_ATTN (vLLM's default here).
 
 vLLM calls general plugins in the engine-core process and in every worker before the worker is built. The plugin only
 registers import hooks, so non-vLLM processes and the API server are not touched. If `VLLM_PLUGINS` is set, it must list
-`startlux_prefix_bidir`. In-process alternative: `VLLM_ENABLE_V1_MULTIPROCESSING=0`, then
-`from startlux_decide import vllm_plugin; vllm_plugin.install()`.
+`if_decision_prefix_bidir`. In-process alternative: `VLLM_ENABLE_V1_MULTIPROCESSING=0`, then
+`from if_decision import vllm_plugin; vllm_plugin.install()`.
 
 **Check that an engine has it.** The server log prints `prefix-bidirectional prompt attention ON for DIR` and the p of
 the first three requests; `launch-vllm` refuses to continue without that line. For an in-process `vllm.LLM`,
 `vllm_plugin.require_active(llm, DIR)` raises unless every worker reports the plugin active
-(`llm.collective_rpc("startlux_prefix_status")`; stock vLLM has no such method).
+(`llm.collective_rpc("if_decision_prefix_status")`; stock vLLM has no such method).
 
-**When it is off.** With `STARTLUX_PREFIX_BIDIR` unset nothing is patched. With it set and a causal folder, the patched
+**When it is off.** With `IF_DECISION_PREFIX_BIDIR` unset nothing is patched. With it set and a causal folder, the patched
 methods call the stock code only. In both cases the outputs were bit-identical to stock vLLM (test d below).
 
-**Debug.** `STARTLUX_PREFIX_BIDIR_CHECK=1` recomputes the attention of up to `STARTLUX_PREFIX_BIDIR_CHECK_REQS` (2)
+**Debug.** `IF_DECISION_PREFIX_BIDIR_CHECK=1` recomputes the attention of up to `IF_DECISION_PREFIX_BIDIR_CHECK_REQS` (2)
 requests per layer call in fp32 with the explicit masks. It raises if the fix-up is further from its reference than
 twice the stock causal kernel is from its own (or one bf16 ulp at the largest output).
 
@@ -88,7 +88,7 @@ The variable names and the extra-argument key of the plugin's earlier internal c
 
 The fix-up itself (`FlashAttentionImpl.forward`, one non-causal varlen FlashAttention call) is the same code on both
 versions. Both are validated ([results](#vllm-0310)). Other versions are refused unless
-`STARTLUX_PREFIX_BIDIR_ALLOW_VERSION=1`.
+`IF_DECISION_PREFIX_BIDIR_ALLOW_VERSION=1`.
 
 **Why 0.31 needed a port.** vLLM 0.31 builds model runner V2 by default (its log says "Using V2 Model Runner"). The
 plugin for 0.19.1, run there with the version check waived, patched only the V1 class: it logged "installed" but never
@@ -108,7 +108,7 @@ such steps.
 together with chunked prefill; the plugin needs both off, as before. A step with a prompt prefill must not replay a
 FULL CUDA graph (the fix-up runs in eager attention); with the default `FULL_AND_PIECEWISE` such steps run piecewise,
 and the plugin raises if one is ever dispatched to a FULL graph. TRITON_ATTN is refused on 0.31 even with
-`STARTLUX_PREFIX_BIDIR_ALLOW_TRITON=1`: 0.31 turns its PrefixLM ranges into a tensor when the metadata is built, so
+`IF_DECISION_PREFIX_BIDIR_ALLOW_TRITON=1`: 0.31 turns its PrefixLM ranges into a tensor when the metadata is built, so
 the plan cannot reach them.
 
 ## Test results
@@ -164,7 +164,7 @@ option's probability per question.
 | 0.19.1 against 0.31 (runner V2), offline | same top option on 340 of 340; one-pass mean \|Δp\| 0.0015, max 0.025, none above 0.05; 38 of 40 continuations identical |
 | unknown runner | 0.19.1 with `VLLM_USE_V2_MODEL_RUNNER=1`: the engine refuses the Instant folder at start |
 
-Through the server: `startlux-decide serve` in front of `vllm serve` with the release flags, the 300 latency requests
+Through the server: `if-decision serve` in front of `vllm serve` with the release flags, the 300 latency requests
 (823 questions) one at a time, `think_mode` never. Reference: vLLM 0.19.1 with the plugin before the port.
 
 | engine | Instant 4B: same option, mean \|Δp\|, share above 0.05 | Instant 27B |
@@ -198,10 +198,10 @@ attention over the prompt). A single short request that stalls for a second move
 - **FLASH_ATTN only.** TRITON_ATTN through vLLM's own PrefixLM ranges was tried as a cross-check. Its read-outs match
   the reference, but in 0.19.1 `triton_unified_attention` with `USE_MM_PREFIX` widens every sequence of a launch to
   `max(causal bound, seq_len)` keys: decode rows that share a launch with such a prefill read past their end, and
-  generations collapse into `!!!!`. The plugin refuses TRITON_ATTN unless `STARTLUX_PREFIX_BIDIR_ALLOW_TRITON=1`
+  generations collapse into `!!!!`. The plugin refuses TRITON_ATTN unless `IF_DECISION_PREFIX_BIDIR_ALLOW_TRITON=1`
   (read-out-only jobs, 0.19.1 only; on 0.31 it is always refused).
 - **Validated on H200** (FlashAttention 3 on both versions). On Blackwell, vLLM 0.31 picks FlashAttention 4; run the
-  fp32 check (`STARTLUX_PREFIX_BIDIR_CHECK=1`) before trusting it there.
+  fp32 check (`IF_DECISION_PREFIX_BIDIR_CHECK=1`) before trusting it there.
 - **Required engine settings.** Chunked prefill and prefix caching off, `max_num_batched_tokens >= max_model_len`. A
   long prefill stalls the decodes of its step.
 - **Images** (vLLM 0.31). Image tokens are prompt tokens like any other: the fix-up recomputes their rows with the rest
@@ -228,12 +228,12 @@ attention over the prompt). A single short request that stalls for a second move
   (their rule looks at the end of the prompt).
 - **Empty thought.** A read-out after an empty thought without a forced prefix (`template + "" + "\n</think>\n\n"`) is
   the same text as the one-pass prompt, so it is read fully bidirectionally.
-- **Plugin not loaded.** `STARTLUX_PREFIX_BIDIR=1` without the package in vLLM's environment gives stock vLLM, which
+- **Plugin not loaded.** `IF_DECISION_PREFIX_BIDIR=1` without the package in vLLM's environment gives stock vLLM, which
   reads the folder causally without notice. Use `launch-vllm`, `require_active` or check the log.
 - **Version.** Tied to the internals of vLLM 0.19.1 and 0.31.0: `FlashAttentionImpl.forward`; for runner V1
   `GPUModelRunner._build_attention_metadata` and the cached request states; for runner V2 `GPUModelRunner.add_requests`,
   `_remove_request`, `load_model`, `execute_model`, the model state's `prepare_attn` and the kernel warm-up functions.
-  Other versions are refused; `STARTLUX_PREFIX_BIDIR_ALLOW_VERSION=1` overrides after re-validating (run the fp32 check
+  Other versions are refused; `IF_DECISION_PREFIX_BIDIR_ALLOW_VERSION=1` overrides after re-validating (run the fp32 check
   and compare read-outs with a validated version).
 - **Status counters on runner V2.** A request resumed after preemption comes back to runner V2 as a new request, so
   its prompt end is found again and counted twice in `bi_requests` and the prompt-kind counters (diagnostics only).

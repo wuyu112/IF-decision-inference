@@ -40,15 +40,15 @@ from .modelcfg import ModelFolder
 from .pipeline import Decider
 from .serving import DECISION_PATHS, OPEN_PATHS, RequestLog, ServeOptions, client_address, key_id, utc_now
 
-log = logging.getLogger("startlux_decide.server")
+log = logging.getLogger("if_decision.server")
 MAX_BODY = 64 * 1024 * 1024
 MAX_UNPARSED = 65536                                           # characters of a body that is not JSON, in the request log
 _REQUEST_ID = re.compile(r"[A-Za-z0-9._:-]{1,128}")
 _RequestKey = getattr(web, "RequestKey", None)                 # typed request storage in newer aiohttp versions
-_RID = _RequestKey("request_id", str) if _RequestKey else "startlux_request_id"
-_STATS = _RequestKey("stats", dict) if _RequestKey else "startlux_stats"
-_BODY = _RequestKey("body", object) if _RequestKey else "startlux_body"                    # for the request log
-_LOGGED = _RequestKey("logged_reply", dict) if _RequestKey else "startlux_logged_reply"     # the reply with thoughts
+_RID = _RequestKey("request_id", str) if _RequestKey else "if_decision_request_id"
+_STATS = _RequestKey("stats", dict) if _RequestKey else "if_decision_stats"
+_BODY = _RequestKey("body", object) if _RequestKey else "if_decision_body"                    # for the request log
+_LOGGED = _RequestKey("logged_reply", dict) if _RequestKey else "if_decision_logged_reply"     # the reply with thoughts
 
 
 class _Inflight:
@@ -223,7 +223,7 @@ async def models(request: web.Request) -> web.Response:
     folder = request.app[FOLDER]
     kind = {"instant": "Instant (one pass)", "v1": "v1 (one pass)"}.get(folder.kind, "AutoThink (thinks when unsure)")
     return web.json_response({"models": [{"name": request.app[NAME], "release_date": folder.release_date,
-                                          "description": f"StartLux-Decision typed decision model, {kind}"}]})
+                                          "description": f"IF Decision typed decision model, {kind}"}]})
 
 
 async def openrouter_models(request: web.Request) -> web.Response:

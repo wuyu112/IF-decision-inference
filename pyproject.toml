@@ -3,9 +3,9 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "startlux-decide"
+name = "if-decision-inference"
 version = "1.1.0"
-description = "Inference engine and server for the StartLux-Decision models: a calibrated probability for every option of a typed question"
+description = "Inference engine and server for the IF Decision models: a calibrated probability for every option of a typed question"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9"
@@ -13,7 +13,7 @@ dependencies = [
     "aiohttp>=3.9",          # the server and the HTTP engines
     "transformers>=5.6",     # the model folder's tokenizer and chat template
 ]
-authors = [{name = "StartLux"}]
+authors = [{name = "IF Decision"}]
 keywords = ["decision models", "llm", "inference", "vllm", "llama.cpp", "mlx", "calibration"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -27,11 +27,11 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://decision.startlux.com/"
-Repository = "https://github.com/StartLuxLabs/StartLux-Decision"
-Documentation = "https://github.com/StartLuxLabs/StartLux-Decision/tree/main/docs"
-Issues = "https://github.com/StartLuxLabs/StartLux-Decision/issues"
-Models = "https://huggingface.co/startlux-models"
+Homepage = "https://huggingface.co/peng12345/IF-decision-27b"
+Repository = "https://github.com/wuyu112/IF-decision-inference"
+Documentation = "https://github.com/wuyu112/IF-decision-inference/tree/main/docs"
+Issues = "https://github.com/wuyu112/IF-decision-inference/issues"
+Models = "https://huggingface.co/peng12345/IF-decision-27b"
 
 [project.optional-dependencies]
 vllm = ["vllm==0.31.0"]                              # the vLLM plugin is validated on 0.31.0 and on 0.19.1 (the release runs)
@@ -40,10 +40,10 @@ llamacpp = []                                        # llama-server is a separat
 mlx = ["mlx-vlm>=0.7.6"]                              # the MLX engine; brings mlx
 
 [project.scripts]
-startlux-decide = "startlux_decide.cli:main"
+if-decision = "if_decision.cli:main"
 
 [project.entry-points."vllm.general_plugins"]
-startlux_prefix_bidir = "startlux_decide.vllm_plugin:plugin"
+if_decision_prefix_bidir = "if_decision.vllm_plugin:plugin"
 
 [tool.setuptools.packages.find]
-include = ["startlux_decide*"]
+include = ["if_decision*"]

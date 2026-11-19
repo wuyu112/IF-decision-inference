@@ -3,7 +3,7 @@
 docs/vllm_bidirectional.md.
 
 Which models. A folder whose config.json has "jev_prompt_attention": "bidirectional". Active only when the environment
-has STARTLUX_PREFIX_BIDIR=1 AND the folder has that value; a causal folder (or the variable unset) runs stock vLLM.
+has IF_DECISION_PREFIX_BIDIR=1 AND the folder has that value; a causal folder (or the variable unset) runs stock vLLM.
 
 The mask, in the FULL-ATTENTION layers only (positions inside one request):
     query q may read key k   <=>   k <= q   or   (q < p and k < p)
@@ -12,9 +12,9 @@ p = the prompt end of the request, from its prompt token ids:
       bidirectional
     * otherwise p = the position right after the "<think>\\n" that follows the first "<|im_start|>assistant\\n" header;
       the forced prefix, the thought, "</think>" and the read-out after it are causal
-    * SamplingParams(extra_args={"startlux_prompt_end": p}), or "vllm_xargs": {"startlux_prompt_end": p} in an
+    * SamplingParams(extra_args={"if_decision_prompt_end": p}), or "vllm_xargs": {"if_decision_prompt_end": p} in an
       OpenAI request, sets p explicitly (0 = causal, L = everything bidirectional)
-    * no match: an error (STARTLUX_PREFIX_BIDIR_UNMATCHED=causal|full reads such prompts causally / fully)
+    * no match: an error (IF_DECISION_PREFIX_BIDIR_UNMATCHED=causal|full reads such prompts causally / fully)
 The Gated DeltaNet layers, their short convolutions and the KV-cache write are untouched.
 
 How. Every full-attention layer first runs the stock causal FlashAttention call of the step. For each request whose
@@ -40,31 +40,31 @@ mask): chunked prefill and prefix caching off, max_num_batched_tokens >= max_mod
 whole, from position 0, in one step; a preempted request is recomputed from position 0, also in one step); attention
 backend FLASH_ATTN; no speculative decoding, no context parallelism, no ubatching; KV cache bf16/fp16; a step with a
 prompt prefill never replays a FULL CUDA graph (the fix-up runs in the eager attention of piecewise and eager steps);
-vLLM 0.19.1 or 0.31.0 (STARTLUX_PREFIX_BIDIR_ALLOW_VERSION=1 overrides after re-validation). TRITON_ATTN is refused
-unless vLLM is 0.19.1 and STARTLUX_PREFIX_BIDIR_ALLOW_TRITON=1 (read-out-only jobs): in 0.19.1 its PrefixLM path
+vLLM 0.19.1 or 0.31.0 (IF_DECISION_PREFIX_BIDIR_ALLOW_VERSION=1 overrides after re-validation). TRITON_ATTN is refused
+unless vLLM is 0.19.1 and IF_DECISION_PREFIX_BIDIR_ALLOW_TRITON=1 (read-out-only jobs): in 0.19.1 its PrefixLM path
 corrupts decode rows that share a kernel launch with such a prefill, and from 0.31 its PrefixLM ranges are fixed when
 the metadata is built, so the plan could not reach them.
 
-Loading. The package declares the entry point ``vllm.general_plugins: startlux_prefix_bidir``; vLLM calls it in the
+Loading. The package declares the entry point ``vllm.general_plugins: if_decision_prefix_bidir``; vLLM calls it in the
 engine-core process and in every worker before the worker is built, so installing this package in vLLM's Python
-environment and setting STARTLUX_PREFIX_BIDIR=1 is all a launcher needs (if VLLM_PLUGINS is set it must list
-startlux_prefix_bidir). In-process alternative: VLLM_ENABLE_V1_MULTIPROCESSING=0, then
-``from startlux_decide import vllm_plugin; vllm_plugin.install()``. Check an engine with ``require_active(llm, DIR)``;
+environment and setting IF_DECISION_PREFIX_BIDIR=1 is all a launcher needs (if VLLM_PLUGINS is set it must list
+if_decision_prefix_bidir). In-process alternative: VLLM_ENABLE_V1_MULTIPROCESSING=0, then
+``from if_decision import vllm_plugin; vllm_plugin.install()``. Check an engine with ``require_active(llm, DIR)``;
 the server log prints "prefix-bidirectional prompt attention ON for DIR".
 
 Memory. vLLM sizes its KV cache after a profile run whose requests get no plan, so the fix-up's own memory is not
-reserved. A step of many short prompts gathers their rows into one call (a few MB). From STARTLUX_PREFIX_BIDIR_LEAN_ROWS
+reserved. A step of many short prompts gathers their rows into one call (a few MB). From IF_DECISION_PREFIX_BIDIR_LEAN_ROWS
 prompt rows in a step (16,384) the fix-up instead reads views of each request's rows and writes the result straight
 into the output rows, one call per request, so that it needs no copy of the step's queries, keys, values or outputs
 (about 5 GB per layer call for a 262,144-token prompt of the 4B, which ran a full GPU out of memory). Both paths
 compute the same attention for every row.
 
-Debug: STARTLUX_PREFIX_BIDIR_CHECK=1 recomputes the attention of up to STARTLUX_PREFIX_BIDIR_CHECK_REQS (2) requests per
+Debug: IF_DECISION_PREFIX_BIDIR_CHECK=1 recomputes the attention of up to IF_DECISION_PREFIX_BIDIR_CHECK_REQS (2) requests per
 layer call in fp32 with the explicit masks and raises when the fix-up is further from its fp32 reference than twice the
 stock causal kernel is from its own (see _check).
 
-The variable names and the extra-argument key of the earlier internal copy of this plugin (the same names with the
-prefix of the config key instead of STARTLUX / startlux) are accepted as aliases.
+The variable names and extra-argument key of the earlier internal copy of this
+plugin are accepted as legacy aliases.
 """
 from __future__ import annotations
 
@@ -80,13 +80,13 @@ import threading
 
 from .modelcfg import PROMPT_ATTENTION_KEY, read_prompt_attention
 
-ENV = "STARTLUX_PREFIX_BIDIR"
+ENV = "IF_DECISION_PREFIX_BIDIR"
 LEGACY_ENV = PROMPT_ATTENTION_KEY.split("_", 1)[0].upper() + "_PREFIX_BIDIR"
-PLUGIN_NAME = "startlux_prefix_bidir"
+PLUGIN_NAME = "if_decision_prefix_bidir"
 VLLM_VERSIONS = ("0.19.1", "0.31.0")          # validated (docs/vllm_bidirectional.md)
 LEAN_ROWS = 16384                             # prompt rows in a step from which the fix-up works in place (Memory)
 TRITON_VERSION = "0.19.1"                     # the only version whose TRITON_ATTN PrefixLM ranges the plan can set
-EXTRA_KEY = "startlux_prompt_end"
+EXTRA_KEY = "if_decision_prompt_end"
 LEGACY_EXTRA_KEY = PROMPT_ATTENTION_KEY.split("_", 1)[0] + "_prompt_end"
 THINK = "<think>"
 ONE_PASS_SUFFIX = "<think>\n\n</think>\n\n"
@@ -98,7 +98,7 @@ RUNNER_V2 = "vllm.v1.worker.gpu.model_runner"
 WARMUP_V2 = "vllm.v1.worker.gpu.warmup"
 WARMUP_FUNCTIONS = ("warmup_kernels", "run_mixed_prefill_decode_warmup")    # vLLM's synthetic-request warm-ups
 
-logger = logging.getLogger("vllm.startlux_prefix_bidir")
+logger = logging.getLogger("vllm.if_decision_prefix_bidir")
 _lock = threading.Lock()
 STATUS = {"installed": False, "hooked": [], "patched": [], "error": None, "vllm": None, "pid": os.getpid(),
           "runners": 0, "bi_runners": 0, "steps_with_plan": 0, "bi_requests": 0, "bi_rows": 0, "max_p": 0,
@@ -108,13 +108,13 @@ STATUS = {"installed": False, "hooked": [], "patched": [], "error": None, "vllm"
 
 
 def env(suffix: str = "", default: str | None = None) -> str | None:
-    """STARTLUX_PREFIX_BIDIR<suffix>, or its alias from the earlier internal copy."""
+    """IF_DECISION_PREFIX_BIDIR<suffix>, or its alias from the earlier internal copy."""
     return os.environ.get(ENV + suffix, os.environ.get(LEGACY_ENV + suffix, default))
 
 
 def _say(msg: str) -> None:
     """To the vLLM log and to stderr (the plugin can run before vLLM's logging is set up)."""
-    line = f"[startlux prefix-bidir pid={os.getpid()}] {msg}"
+    line = f"[if_decision prefix-bidir pid={os.getpid()}] {msg}"
     logger.info(line)
     print(line, file=sys.stderr, flush=True)
 
@@ -205,7 +205,7 @@ def _check_runner_config(runner) -> None:
 def _runner_init(runner, kind: str) -> _RunnerState:
     """After the stock __init__ of a model runner (V1 or V2): the runner state, the engine checks, the log line."""
     st = _RunnerState(runner, kind)
-    runner._startlux_prefix = st
+    runner._if_decision_prefix = st
     with _lock:
         STATUS["runners"] += 1
         STATUS["bi_runners"] += int(st.bi)
@@ -247,7 +247,7 @@ def _check_backends(runner) -> None:
 
 
 def _req_prompt_end(st: _RunnerState, state) -> int:
-    p = getattr(state, "_startlux_prompt_end", None)
+    p = getattr(state, "_if_decision_prompt_end", None)
     if p is not None:
         return p
     ids = state.prompt_token_ids
@@ -274,7 +274,7 @@ def _req_prompt_end(st: _RunnerState, state) -> int:
                                    f"{ONE_PASS_SUFFIX!r} nor contains {HEADER + THINK!r} + newline; pass "
                                    f"SamplingParams(extra_args={{'{EXTRA_KEY}': p}}) or set "
                                    f"{ENV}_UNMATCHED=causal|full")
-    state._startlux_prompt_end = p
+    state._if_decision_prompt_end = p
     with _lock:
         STATUS[kind] += 1
         STATUS["bi_requests"] += 1
@@ -343,26 +343,26 @@ def _make_plan(runner, num_reqs: int, num_scheduled_tokens) -> Plan | None:
     np.cumsum(sched, out=qs[1:])
     items = [(i, runner.requests[req_ids[i]], int(nc[i]), int(sched[i]), int(qs[i]), int(npt[i]))
              for i in pre.tolist()]
-    return _plan(runner._startlux_prefix, items, int(qs[-1]))
+    return _plan(runner._if_decision_prefix, items, int(qs[-1]))
 
 
 class _NewRequest:
     """Model runner V2: what the plan needs of a request (V2 keeps no per-request object with the prompt ids and the
     sampling parameters)."""
-    __slots__ = ("req_id", "prompt_token_ids", "sampling_params", "num_prompt", "_startlux_prompt_end")
+    __slots__ = ("req_id", "prompt_token_ids", "sampling_params", "num_prompt", "_if_decision_prompt_end")
 
     def __init__(self, new_req_data):
         self.req_id = new_req_data.req_id
         self.prompt_token_ids = new_req_data.prompt_token_ids
         self.sampling_params = new_req_data.sampling_params
         self.num_prompt = new_req_data.prompt_len
-        self._startlux_prompt_end = None
+        self._if_decision_prompt_end = None
 
 
 def _make_plan_v2(runner, ib) -> Plan | None:
     """Model runner V2: the plan from the step's InputBatch (requests in batch order, decodes first). None during
     vLLM's own kernel warm-up (see _warmup_window)."""
-    if getattr(runner, "_startlux_warmup", False):
+    if getattr(runner, "_if_decision_warmup", False):
         with _lock:
             STATUS["warmup_steps"] += 1
         return None
@@ -371,7 +371,7 @@ def _make_plan_v2(runner, ib) -> Plan | None:
     pre = np.flatnonzero(ib.is_prefilling_np[:n])
     if pre.size == 0:
         return None
-    known = runner._startlux_reqs
+    known = runner._if_decision_reqs
     items = []
     for i in pre.tolist():
         state = known.get(ib.req_ids[i])
@@ -380,7 +380,7 @@ def _make_plan_v2(runner, ib) -> Plan | None:
                                "as a new request")
         items.append((i, state, int(ib.num_computed_tokens_np[i]), int(ib.num_scheduled_tokens[i]),
                       int(ib.query_start_loc_np[i]), int(state.num_prompt)))
-    return _plan(runner._startlux_prefix, items, int(ib.num_tokens))
+    return _plan(runner._if_decision_prefix, items, int(ib.num_tokens))
 
 
 def _attach(attn_metadata, plan: Plan) -> None:
@@ -398,7 +398,7 @@ def _attach(attn_metadata, plan: Plan) -> None:
                     or getattr(m, "rswa_prefix_lens", None) is not None):
                 raise RuntimeError(f"{PLUGIN_NAME}: the stock attention of this step is not plain causal attention "
                                    "(per-request causal flags, cascade, multimodal PrefixLM ranges or R-SWA)")
-            m.startlux_plan = plan
+            m.if_decision_plan = plan
             n_full += 1
         elif cls == "TritonAttentionMetadata":
             if STATUS["vllm"] != TRITON_VERSION:
@@ -427,7 +427,7 @@ def _attach(attn_metadata, plan: Plan) -> None:
 def _patch_runner(mod) -> None:
     """Model runner V1 (vllm.v1.worker.gpu_model_runner)."""
     R = mod.GPUModelRunner
-    if getattr(R, "_startlux_patched", False):
+    if getattr(R, "_if_decision_patched", False):
         return
     init0, build0, backend0 = R.__init__, R._build_attention_metadata, R.initialize_attn_backend
     sig = inspect.signature(build0)
@@ -438,14 +438,14 @@ def _patch_runner(mod) -> None:
 
     def initialize_attn_backend(self, kv_cache_config, *args, **kwargs):
         backend0(self, kv_cache_config, *args, **kwargs)
-        st = getattr(self, "_startlux_prefix", None)
+        st = getattr(self, "_if_decision_prefix", None)
         if st is None or not st.bi:
             return
         _check_backends(self)
 
     def _build_attention_metadata(self, *args, **kwargs):
         out = build0(self, *args, **kwargs)
-        st = getattr(self, "_startlux_prefix", None)
+        st = getattr(self, "_if_decision_prefix", None)
         if st is None or not st.bi:
             return out
         b = sig.bind(self, *args, **kwargs)
@@ -461,7 +461,7 @@ def _patch_runner(mod) -> None:
     R.__init__ = __init__
     R.initialize_attn_backend = initialize_attn_backend
     R._build_attention_metadata = _build_attention_metadata
-    R._startlux_patched = True
+    R._if_decision_patched = True
     STATUS["patched"].append("GPUModelRunner")
 
 
@@ -470,7 +470,7 @@ def _wrap_prepare_attn(runner) -> None:
     step's InputBatch) so that the plan is attached to the FLASH_ATTN metadata it returns."""
     ms = runner.model_state
     prep0 = ms.prepare_attn
-    if getattr(prep0, "_startlux_wrapped", False):
+    if getattr(prep0, "_if_decision_wrapped", False):
         return
 
     def prepare_attn(input_batch, cudagraph_mode, *args, **kwargs):
@@ -486,7 +486,7 @@ def _wrap_prepare_attn(runner) -> None:
             _attach(out, plan)
         return out
 
-    prepare_attn._startlux_wrapped = True
+    prepare_attn._if_decision_wrapped = True
     ms.prepare_attn = prepare_attn
 
 
@@ -495,19 +495,19 @@ def _warmup_window(fn):
     the engine serves anything) with synthetic requests sent through the real execute_model path: prompt ids 0, 1,
     2, ..., outputs discarded. Their prompts match no prompt-end rule, so while such a function runs the runner makes
     no plan and these requests are read causally."""
-    if getattr(fn, "_startlux_wrapped", False):
+    if getattr(fn, "_if_decision_wrapped", False):
         return fn
 
     @functools.wraps(fn)
     def wrapper(model_runner, *args, **kwargs):
-        prev = getattr(model_runner, "_startlux_warmup", False)
-        model_runner._startlux_warmup = True
+        prev = getattr(model_runner, "_if_decision_warmup", False)
+        model_runner._if_decision_warmup = True
         try:
             return fn(model_runner, *args, **kwargs)
         finally:
-            model_runner._startlux_warmup = prev
+            model_runner._if_decision_warmup = prev
 
-    wrapper._startlux_wrapped = True
+    wrapper._if_decision_wrapped = True
     return wrapper
 
 
@@ -522,18 +522,18 @@ def _patch_warmup(mod) -> None:
 def _patch_runner_v2(mod) -> None:
     """Model runner V2 (vllm.v1.worker.gpu.model_runner), the default runner of vLLM 0.31."""
     R = mod.GPUModelRunner
-    if getattr(R, "_startlux_patched", False):
+    if getattr(R, "_if_decision_patched", False):
         return
     init0, load0, kv0 = R.__init__, R.load_model, R.initialize_kv_cache
     add0, rm0, exec0 = R.add_requests, R._remove_request, R.execute_model
 
     def bi(runner) -> bool:
-        st = getattr(runner, "_startlux_prefix", None)
+        st = getattr(runner, "_if_decision_prefix", None)
         return st is not None and st.bi
 
     def __init__(self, *args, **kwargs):
         init0(self, *args, **kwargs)
-        self._startlux_reqs = {}
+        self._if_decision_reqs = {}
         _runner_init(self, "V2")
 
     def load_model(self, *args, **kwargs):
@@ -552,18 +552,18 @@ def _patch_runner_v2(mod) -> None:
         out = add0(self, scheduler_output)
         if bi(self):
             for nr in scheduler_output.scheduled_new_reqs:
-                self._startlux_reqs[nr.req_id] = _NewRequest(nr)
+                self._if_decision_reqs[nr.req_id] = _NewRequest(nr)
         return out
 
     def _remove_request(self, req_id):
-        reqs = getattr(self, "_startlux_reqs", None)
+        reqs = getattr(self, "_if_decision_reqs", None)
         if reqs:
             reqs.pop(req_id, None)
         return rm0(self, req_id)
 
     def execute_model(self, *args, **kwargs):
-        if bi(self) and not getattr(self.model_state.prepare_attn, "_startlux_wrapped", False):
-            raise RuntimeError(f"{PLUGIN_NAME}: the model state of {self._startlux_prefix.model} was replaced after "
+        if bi(self) and not getattr(self.model_state.prepare_attn, "_if_decision_wrapped", False):
+            raise RuntimeError(f"{PLUGIN_NAME}: the model state of {self._if_decision_prefix.model} was replaced after "
                                "load_model; its attention metadata would not get the prefix plan")
         return exec0(self, *args, **kwargs)
 
@@ -573,7 +573,7 @@ def _patch_runner_v2(mod) -> None:
     R.add_requests = add_requests
     R._remove_request = _remove_request
     R.execute_model = execute_model
-    R._startlux_patched = True
+    R._if_decision_patched = True
     STATUS["patched"].append("GPUModelRunnerV2")
 
 
@@ -672,7 +672,7 @@ def _check(impl, plan: Plan, query, key, value, output, stock_rows) -> None:
 
 def _patch_flash_attn(mod) -> None:
     Impl = mod.FlashAttentionImpl
-    if getattr(Impl, "_startlux_patched", False):
+    if getattr(Impl, "_if_decision_patched", False):
         return
     fwd0 = Impl.forward
     from vllm.v1.attention.backend import AttentionType
@@ -681,7 +681,7 @@ def _patch_flash_attn(mod) -> None:
                 output_block_scale=None):
         out = fwd0(self, layer, query, key, value, kv_cache, attn_metadata, output=output, output_scale=output_scale,
                    output_block_scale=output_block_scale)
-        plan = getattr(attn_metadata, "startlux_plan", None) if attn_metadata is not None else None
+        plan = getattr(attn_metadata, "if_decision_plan", None) if attn_metadata is not None else None
         if plan is not None and self.attn_type == AttentionType.DECODER:
             if self.dcp_world_size > 1:
                 raise RuntimeError(f"{PLUGIN_NAME}: decode context parallelism is not supported")
@@ -693,13 +693,13 @@ def _patch_flash_attn(mod) -> None:
         return out
 
     Impl.forward = forward
-    Impl._startlux_patched = True
+    Impl._if_decision_patched = True
     STATUS["patched"].append("FlashAttentionImpl")
 
 
 def _status(worker) -> dict:
     mr = getattr(worker, "model_runner", None)
-    st = getattr(mr, "_startlux_prefix", None)
+    st = getattr(mr, "_if_decision_prefix", None)
     with _lock:
         d = json.loads(json.dumps(STATUS))
     d.update({"pid": os.getpid(), "model": st.model if st else None, "mode": st.mode if st else None,
@@ -717,7 +717,7 @@ def _require_patched_runner(worker) -> None:
     if not (os.path.isdir(model) and read_prompt_attention(model) == "bidirectional"):
         return
     mr = getattr(worker, "model_runner", None)
-    st = getattr(mr, "_startlux_prefix", None)
+    st = getattr(mr, "_if_decision_prefix", None)
     if st is None or not st.bi:
         why = STATUS["error"] or f"this runner is not supported on vLLM {STATUS['vllm']}"
         raise RuntimeError(f"{PLUGIN_NAME}: {model} reads its prompt bidirectionally but its model runner "
@@ -727,10 +727,10 @@ def _require_patched_runner(worker) -> None:
 
 def _patch_worker(mod) -> None:
     W = mod.Worker
-    if not hasattr(W, "startlux_prefix_status"):
-        W.startlux_prefix_status = _status
-        STATUS["patched"].append("Worker.startlux_prefix_status")
-    if not getattr(W, "_startlux_guarded", False):
+    if not hasattr(W, "if_decision_prefix_status"):
+        W.if_decision_prefix_status = _status
+        STATUS["patched"].append("Worker.if_decision_prefix_status")
+    if not getattr(W, "_if_decision_guarded", False):
         init_device0 = W.init_device
 
         def init_device(self, *args, **kwargs):
@@ -739,7 +739,7 @@ def _patch_worker(mod) -> None:
             return out
 
         W.init_device = init_device
-        W._startlux_guarded = True
+        W._if_decision_guarded = True
         STATUS["patched"].append("Worker.init_device")
     if RUNNER_V2 in _HOOKS:                # the worker's own binding (from .gpu.warmup import warmup_kernels)
         for name in WARMUP_FUNCTIONS:
@@ -750,7 +750,7 @@ def _patch_worker(mod) -> None:
 def _guard_runner(mod) -> None:
     """Version mismatch: no patch, but a bidirectional folder must not be read causally without notice."""
     R = mod.GPUModelRunner
-    if getattr(R, "_startlux_guarded", False):
+    if getattr(R, "_if_decision_guarded", False):
         return
     init0 = R.__init__
 
@@ -762,7 +762,7 @@ def _guard_runner(mod) -> None:
                                f"installed: {STATUS['error']}")
 
     R.__init__ = __init__
-    R._startlux_guarded = True
+    R._if_decision_guarded = True
 
 
 # ------------------------------------------------------------------------------------------------ installation
@@ -808,7 +808,7 @@ def _hook(name: str, fn) -> None:
 
 
 def install() -> bool:
-    """Install the import hooks (idempotent). Called by the plugin entry point when STARTLUX_PREFIX_BIDIR=1."""
+    """Install the import hooks (idempotent). Called by the plugin entry point when IF_DECISION_PREFIX_BIDIR=1."""
     if STATUS["installed"] or STATUS["hooked"]:
         return STATUS["installed"]
     try:
@@ -838,7 +838,7 @@ def install() -> bool:
 
 
 def plugin() -> None:
-    """vllm.general_plugins entry point: install when STARTLUX_PREFIX_BIDIR=1, otherwise do nothing at all."""
+    """vllm.general_plugins entry point: install when IF_DECISION_PREFIX_BIDIR=1, otherwise do nothing at all."""
     if env() == "1":
         install()
 
@@ -846,7 +846,7 @@ def plugin() -> None:
 def status(llm) -> list:
     """Status dict of every worker of a vllm.LLM; raises if the engine does not have the patch."""
     try:
-        return llm.collective_rpc("startlux_prefix_status")
+        return llm.collective_rpc("if_decision_prefix_status")
     except Exception as e:                  # noqa: BLE001
         raise RuntimeError(f"{PLUGIN_NAME} is not loaded in the engine ({type(e).__name__}: {e}); install this package "
                            f"in vLLM's Python environment and set {ENV}=1") from e

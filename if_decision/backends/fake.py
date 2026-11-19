@@ -1,6 +1,6 @@
 """A deterministic stand-in for a model, for tests and for trying clients without a GPU.
 
-FakeTokenizer renders the same chat layout as the StartLux-Decision tokenizers (special tokens, the empty think block
+FakeTokenizer renders the same chat layout as the IF Decision tokenizers (special tokens, the empty think block
 of one-pass prompts, the opened think block of thinking prompts) and reads every other character as one token.
 FakeBackend answers read-outs with log-probabilities derived from a hash of the prompt and writes thoughts from a
 hash of the prompt and the seed; an optional `script` decides how a thought behaves. With ``streams=True`` it also

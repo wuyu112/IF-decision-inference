@@ -1,4 +1,4 @@
-"""The prompt format the StartLux-Decision models were trained on.
+"""The prompt format the IF Decision models were trained on.
 
 A question about a state becomes one chat prompt: a fixed system line, then an Evidence / Question / Options block with
 lettered options. The answer is read from the next-token probabilities of the option letters right after the prompt, so
@@ -143,7 +143,7 @@ def check_tokenizer(tokenizer: Any) -> list[int]:
     text = tokenizer.apply_chat_template(probe, tokenize=False, add_generation_prompt=True, enable_thinking=False)
     if not text.endswith(THINK_OFF_SUFFIX):
         raise ValueError("the tokenizer's chat template lacks the thinking-off assistant prefix "
-                         f"{THINK_OFF_SUFFIX!r}; this is not a StartLux-Decision tokenizer")
+                         f"{THINK_OFF_SUFFIX!r}; this is not a IF Decision tokenizer")
     ids = tokenizer.encode(text, add_special_tokens=False)
     letters = []
     for letter in LETTERS:

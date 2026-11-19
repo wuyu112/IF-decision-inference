@@ -16,7 +16,7 @@ off for every call (``cache_prompt`` false), as prefix caching is off in vLLM.
 
 Instant (prompt-bidirectional) folders need non-causal attention over the prompt in the full-attention layers.
 llama.cpp does this with a non-causal context; the prompt must then be evaluated alone and in one micro-batch.
-``STARTLUX_LLAMACPP_BIDIR`` says how the server provides it:
+``IF_DECISION_LLAMACPP_BIDIR`` says how the server provides it:
 
 * ``auto`` (default): ``start()`` reads the server's ``/props`` once. A server that reports
   ``mtmd_prompt_whole_when_non_causal`` has patch ``0003`` (below), which exists for non-causal contexts and is the only
@@ -103,9 +103,9 @@ class LlamaCppBackend(Backend):
 
     def __init__(self, url: str, tokenizer: Any, bidirectional: bool = False, timeout: float = 3600.0,
                  attempts: int = 4, retry_delay: float = 1.0, transport: Transport | None = None):
-        self.bidir_setting = os.environ.get("STARTLUX_LLAMACPP_BIDIR") or "auto"
+        self.bidir_setting = os.environ.get("IF_DECISION_LLAMACPP_BIDIR") or "auto"
         if bidirectional and self.bidir_setting not in BIDIR_MODES:
-            raise ValueError("STARTLUX_LLAMACPP_BIDIR must be auto, request, server or off")
+            raise ValueError("IF_DECISION_LLAMACPP_BIDIR must be auto, request, server or off")
         # `auto` is settled by start() from /props; a backend that was not started works as `request`
         self.bidir_mode = "request" if self.bidir_setting == "auto" else self.bidir_setting
         self.url = base_url(url)
@@ -129,7 +129,7 @@ class LlamaCppBackend(Backend):
         patch_0003 = bool(props.get("mtmd_prompt_whole_when_non_causal"))
         if self.bidirectional and self.bidir_setting == "auto":
             self.bidir_mode = "server" if patch_0003 else "request"
-            logging.info("llamacpp: STARTLUX_LLAMACPP_BIDIR=auto chose %s (/props %s patch 0003)", self.bidir_mode,
+            logging.info("llamacpp: IF_DECISION_LLAMACPP_BIDIR=auto chose %s (/props %s patch 0003)", self.bidir_mode,
                          "reports" if patch_0003 else "does not report")
         if self.reads_images:
             self.media_marker = props.get("media_marker") or DEFAULT_MARKER
@@ -173,7 +173,7 @@ class LlamaCppBackend(Backend):
                 "images with an Instant model need a non-causal llama-server context, which the per-request "
                 "bidirectional mode (patch 0001) does not provide: serve a GGUF with qwen35.attention.causal=false "
                 "(or --override-kv qwen35.attention.causal=bool:false) with --parallel 1 --ctx-checkpoints 0 and "
-                "-b/-ub of at least the longest prompt, and set STARTLUX_LLAMACPP_BIDIR=server")
+                "-b/-ub of at least the longest prompt, and set IF_DECISION_LLAMACPP_BIDIR=server")
         field, pieces = await self._media_prompt(prompt, media)
         return await self._readout(field, letter_ids, None, (pieces, media))
 
@@ -191,7 +191,7 @@ class LlamaCppBackend(Backend):
             echo = (out.get("generation_settings") or {}).get("prompt_bidirectional")
             if echo != extra["prompt_bidirectional"]:
                 raise BackendError("llama-server ignored prompt_bidirectional: it needs the patch "
-                                   "0001-server-bidirectional-prompts (or set STARTLUX_LLAMACPP_BIDIR=server for a "
+                                   "0001-server-bidirectional-prompts (or set IF_DECISION_LLAMACPP_BIDIR=server for a "
                                    "server whose context is non-causal)")
         rows = out.get("completion_probabilities") or out.get("probs") or []
         if not rows:
@@ -212,7 +212,7 @@ class LlamaCppBackend(Backend):
 
     async def bidirectional_readout(self, ids: list[int], letter_ids: Sequence[int]) -> list[float]:
         """Letter log-probabilities after reading the prompt `ids` with bidirectional attention in the full-attention
-        layers (and causal linear-attention layers); see STARTLUX_LLAMACPP_BIDIR in the module docstring."""
+        layers (and causal linear-attention layers); see IF_DECISION_LLAMACPP_BIDIR in the module docstring."""
         if self.bidir_mode == "request":
             return await self._readout(ids, letter_ids, {"prompt_bidirectional": -1})
         return await self._readout(ids, letter_ids)

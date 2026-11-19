@@ -1,6 +1,6 @@
 """What a model folder says about how to run it.
 
-A StartLux-Decision folder holds the weights, the tokenizer, ``config.json`` and ``decision_config.json``:
+A IF Decision folder holds the weights, the tokenizer, ``config.json`` and ``decision_config.json``:
 
 * ``temperature_by_type``: read-out temperature per question type (choice, noul, score), fitted on held-out data;
 * ``letter_token_ids``: the token ids of A to Z (checked against the tokenizer);
@@ -9,7 +9,7 @@ A StartLux-Decision folder holds the weights, the tokenizer, ``config.json`` and
 * ``prompt_attention``: "bidirectional" in Instant folders (their ``config.json`` carries the same value under
   ``jev_prompt_attention``, the key the training pipeline writes and the vLLM plugin reads);
 * ``auto_think`` (optional, causal folders only): overrides of the built-in AutoThink defaults, see AutoThink;
-* ``format``: "StartLux-Decision-v1" in the folders of the first release (v1).
+* ``format``: "IF-Decision-v1" in the folders of the first release (v1).
 
 From ``config.json`` the package also reads whether the folder has a vision tower (``vision_config``; images in the
 evidence), its patch and merge sizes (``patch_size`` x ``spatial_merge_size`` pixels per image token side), and its
@@ -21,7 +21,7 @@ The kinds of models:
   the answer comes from one read-out. These models do not think.
 * AutoThink (causal): one read-out first; when its top probability is below the gate, the model writes a thought
   and the decision is read again after it, and the two read-outs are mixed.
-* v1 (causal; ``format`` "StartLux-Decision-v1" and no ``auto_think`` block): the first release, trained for one
+* v1 (causal; ``format`` "IF-Decision-v1" and no ``auto_think`` block): the first release, trained for one
   read-out. It answers in one pass by default (think_mode "never"); a request may still ask it to think, with the
   AutoThink settings, though v1 was not trained for that. Its prompts are those of v1.1.
 """
@@ -41,7 +41,7 @@ PROMPT_ATTENTION_MODES = ("causal", "bidirectional")
 THINK_MODES = ("auto", "never", "always")
 THINK_MODE_ALIASES = {"hybrid": "auto", "plain": "never", "think": "always"}
 RELEASE_PREFIX = "Let me work through this carefully, step by step.\n"
-V1_FORMAT = "StartLux-Decision-v1"                # decision_config.json "format" of the first release
+V1_FORMAT = "IF-Decision-v1"                # decision_config.json "format" of the first release
 
 
 def think_mode(value: Any) -> str:
@@ -202,7 +202,7 @@ def load_model_folder(path: str) -> ModelFolder:
     """Read and check config.json and decision_config.json of a model folder."""
     cfg_path = os.path.join(path, "decision_config.json")
     if not os.path.isfile(cfg_path):
-        raise FileNotFoundError(f"{path}: no decision_config.json; expected a local StartLux-Decision model folder")
+        raise FileNotFoundError(f"{path}: no decision_config.json; expected a local IF Decision model folder")
     with open(cfg_path) as f:
         cfg = json.load(f)
     mode = read_prompt_attention(path)

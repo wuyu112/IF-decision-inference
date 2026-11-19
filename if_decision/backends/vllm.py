@@ -208,7 +208,7 @@ class VLLMBackend(Backend):
         question = {"type": "noul", "instructions": "Is this a probe?"}
         probe = plain_prompt(self.tokenizer, messages(from_systemone("probe", question)))
         hint = ("start vLLM with --logprobs-mode processed_logprobs --max-logprobs 26 --generation-config vllm "
-                "(startlux-decide launch-vllm does)")
+                "(if-decision launch-vllm does)")
         for url in self.urls:
             try:
                 z = await self.readout_at(url, probe, letters)

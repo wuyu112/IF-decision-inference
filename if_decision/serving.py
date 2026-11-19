@@ -16,7 +16,7 @@ import ssl
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
-log = logging.getLogger("startlux_decide.serving")
+log = logging.getLogger("if_decision.serving")
 MIN_KEY_LENGTH = 16
 DECISION_PATHS = ("/v1/systemone", "/v1/decisions")       # answered by the model; subject to the in-flight limit
 OPEN_PATHS = ("/health", "/v1/health")                     # never need a key

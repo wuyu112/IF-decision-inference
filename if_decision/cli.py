@@ -1,4 +1,4 @@
-"""startlux-decide: serve, launch-vllm, bench, eval and quantize (``startlux-decide COMMAND --help``)."""
+"""if-decision: serve, launch-vllm, bench, eval and quantize (``if-decision COMMAND --help``)."""
 from __future__ import annotations
 
 import argparse
@@ -54,7 +54,7 @@ def _positive(text: str) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(prog="startlux-decide", description=__doc__)
+    ap = argparse.ArgumentParser(prog="if-decision", description=__doc__)
     sub = ap.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("serve", help="run the /v1/systemone server")
@@ -284,7 +284,7 @@ def cmd_launch(a: argparse.Namespace) -> int:
         return 0
     servers.up(a.startup_timeout)
     print("vLLM servers ready: " + ",".join(servers.urls), flush=True)
-    print(f"serve with: startlux-decide serve --model {a.model} --vllm-url {','.join(servers.urls)}", flush=True)
+    print(f"serve with: if-decision serve --model {a.model} --vllm-url {','.join(servers.urls)}", flush=True)
     try:
         while all(p.poll() is None for p in servers.procs):
             time.sleep(2)
@@ -349,11 +349,11 @@ def cmd_quantize(a: argparse.Namespace) -> int:
             raise SystemExit("quantize gguf needs --llama-cpp (a llama.cpp checkout with a build of llama-quantize)")
         cmds, problems = Q.gguf_plan(a.model, a.out, a.llama_cpp, a.type)
         after = (f"serve: llama-server -m {a.out}/model-{a.type}.gguf -ngl 99 -c 65536 --port 8081\n"
-                 f"       startlux-decide serve --model {a.out} --backend llamacpp "
+                 f"       if-decision serve --model {a.out} --backend llamacpp "
                  "--llamacpp-url http://127.0.0.1:8081")
     else:
         cmds, problems = Q.mlx_plan(a.model, a.out, a.bits)
-        after = f"serve: startlux-decide serve --model {a.out} --backend mlx"
+        after = f"serve: if-decision serve --model {a.out} --backend mlx"
     for cmd in cmds:
         print(" ".join(cmd))
     print(f"then copy the tokenizer and config files of {a.model} that are missing in {a.out}")

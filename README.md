@@ -5,13 +5,6 @@ It implements System One /v1/systemone typed decisions, calibrated option
 probabilities, and the vLLM prompt-bidirectional attention plugin required by
 the model.
 
-The implementation is derived from StartLuxLabs/StartLux-Decision 1.1.0 under
-Apache-2.0. The public upstream checked during release was commit
-a99977d9332decc9fb27a2488b4a83b533b6cd5f. The runtime copy differs in four
-files: cli.py, launch.py, server.py, and serving.py. Those differences add a
-request deadline, aiohttp handler cancellation, lazy safetensors loading, and a
-configurable vLLM max-num-seqs. The full resulting source is included here.
-
 ## Model and tested configuration
 
 - Model: https://huggingface.co/peng12345/IF-decision-27b
@@ -30,8 +23,8 @@ The plugin makes the prompt bidirectional in those full-attention layers. It
 does not make every model layer bidirectional. Decision probabilities are read
 from the A–Z option logits and mapped reversibly to the original option keys.
 
-Choice requests above 26 options use the versioned wide-choice path inherited
-from StartLux-Decision: near-equal groups of at most 25 options are all scored,
+Choice requests above 26 options use a versioned wide-choice path: near-equal
+groups of at most 25 options are all scored,
 the best 3 per group advance, and at most 26 finalists are scored in a final
 pass. Finalists share 0.999 probability mass according to the final pass. Every
 non-finalist remains in the response and shares 0.001 in proportion to its
@@ -100,8 +93,9 @@ and a fresh install of this repository. It verifies response schema, original
 key preservation, probability normalization, chosen argmax, and per-option
 probabilities within the tolerance recorded in reproduction_report.json.
 
-## Licence and attribution
+## References and attribution
 
-Apache-2.0. See LICENSE and NOTICE. StartLux-Decision is Copyright StartLux and
-its contributors. IF Decision model training and weights are separate from this
-inference implementation.
+The decision-head design and multi-pass inference strategy were informed by
+the ideas described in [StartLux-Decision](https://github.com/StartLuxLabs/StartLux-Decision).
+The referenced implementation is licensed under Apache-2.0; see `LICENSE` and
+`NOTICE` for the required attribution and pinned reference revision.

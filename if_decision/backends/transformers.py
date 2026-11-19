@@ -32,7 +32,7 @@ class TransformersBackend(Backend):
         self.device_name, self.dtype_name = device, dtype
         self.model = self.body = self.head = self.device = self.processor = None
         self.check: dict | None = None
-        self._executor = ThreadPoolExecutor(1, thread_name_prefix="startlux-transformers")
+        self._executor = ThreadPoolExecutor(1, thread_name_prefix="if_decision-transformers")
 
     async def start(self) -> None:
         await asyncio.get_running_loop().run_in_executor(self._executor, self._load)

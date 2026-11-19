@@ -34,7 +34,7 @@ Prefix caching, chunked prefill and speculative decoding depend on the vLLM vers
   the thoughts keep their length distribution and are generated faster. ``mtp=False`` switches it off.
 * Instant (prompt-bidirectional) folders, on every version: both off and no speculative decoding, because the plugin
   needs every prompt prefilled whole in one step (``--max-num-batched-tokens`` = ``--max-model-len``: one step may
-  hold a prompt of the full context). The servers get STARTLUX_PREFIX_BIDIR=1, and the launcher refuses to go on
+  hold a prompt of the full context). The servers get IF_DECISION_PREFIX_BIDIR=1, and the launcher refuses to go on
   unless every server log shows that the plugin is active.
 """
 from __future__ import annotations
@@ -75,7 +75,7 @@ def server_command(python: str, model: str, port: int, host: str = "127.0.0.1", 
            "--gpu-memory-utilization", str(gpu_memory_utilization), "--logprobs-mode", "processed_logprobs",
            "--max-logprobs", "26", "--generation-config", "vllm",
            "--safetensors-load-strategy", "lazy", "--max-num-seqs",
-           os.environ.get("STARTLUX_VLLM_MAX_NUM_SEQS", "8")]
+           os.environ.get("IF_DECISION_VLLM_MAX_NUM_SEQS", "8")]
     if prefix_caching:
         cmd += ["--enable-prefix-caching", "--enable-chunked-prefill", "--max-num-batched-tokens",
                 str(CACHED_BATCHED_TOKENS)]
@@ -170,7 +170,7 @@ def plugin_problem(log_text: str) -> str | None:
     if ACTIVE_LINE in log_text:
         return None
     for line in log_text.splitlines():
-        if "startlux prefix-bidir" in line and "NOT installed" in line:
+        if "if_decision prefix-bidir" in line and "NOT installed" in line:
             return line.strip()
     return (f"the log has no '{ACTIVE_LINE}' line: vLLM did not load the plugin (install this package in the vLLM "
             f"environment and keep {ENV}=1)")

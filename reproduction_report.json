@@ -8,7 +8,7 @@
   "pip_check": true,
   "versions": {
     "python": "3.12.13",
-    "startlux-decide": "1.1.0",
+    "if-decision": "1.1.0",
     "vllm": "0.31.0",
     "transformers": "5.17.0",
     "torch": "2.13.0+cu130"

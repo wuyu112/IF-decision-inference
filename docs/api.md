@@ -129,7 +129,7 @@ pass (`never`).
                  "probabilities": {"0": 0.12, "1": 0.46, "2": 0.42}}
   },
   "usage": {"input_tokens": 290, "output_tokens": 0},
-  "model": "StartLux-Decision-4B"
+  "model": "IF Decision-4B"
 }
 ```
 
@@ -248,12 +248,12 @@ settings of its engines stay private.
 
 ```python
 import asyncio
-from startlux_decide.backends.vllm import VLLMBackend
-from startlux_decide.modelcfg import load_model_folder, load_tokenizer
-from startlux_decide.pipeline import Decider
+from if_decision.backends.vllm import VLLMBackend
+from if_decision.modelcfg import load_model_folder, load_tokenizer
+from if_decision.pipeline import Decider
 
 async def main():
-    folder = load_model_folder("/models/StartLux-Decision-4B")
+    folder = load_model_folder("/models/IF Decision-4B")
     engine = VLLMBackend(["http://127.0.0.1:8001"], load_tokenizer(folder.path))
     await engine.start()
     decider = Decider(folder, engine)

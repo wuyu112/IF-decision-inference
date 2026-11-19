@@ -162,7 +162,7 @@ class MLXBackend(Backend):
         self.eos: set[int] = set()
         self._letters: dict = {}
         self._features: tuple | None = None            # (media, grids, features) of the last request with images
-        self._executor = ThreadPoolExecutor(1, thread_name_prefix="startlux-mlx")
+        self._executor = ThreadPoolExecutor(1, thread_name_prefix="if_decision-mlx")
 
     async def start(self) -> None:
         await asyncio.get_running_loop().run_in_executor(self._executor, self._load)

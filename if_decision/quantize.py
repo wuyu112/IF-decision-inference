@@ -27,12 +27,12 @@ FOLDER_FILES = ("config.json", "decision_config.json", "tokenizer.json", "tokeni
 
 def fp8_advice(model: str) -> str:
     return (f"FP8 needs no separate build: vLLM quantizes the weights to FP8 when it loads the folder.\n"
-            f"  startlux-decide launch-vllm --model {model} --gpus 0 --quantization fp8\n"
+            f"  if-decision launch-vllm --model {model} --gpus 0 --quantization fp8\n"
             "The KV cache stays BF16 (the prompt-bidirectional plugin refuses an FP8 KV cache). Measure it against "
             "BF16 before use:\n"
-            "  startlux-decide eval --url URL_BF16 --data gold.jsonl --out bf16.jsonl\n"
-            "  startlux-decide eval --url URL_FP8 --data gold.jsonl --out fp8.jsonl\n"
-            "  startlux-decide eval --compare bf16.jsonl fp8.jsonl")
+            "  if-decision eval --url URL_BF16 --data gold.jsonl --out bf16.jsonl\n"
+            "  if-decision eval --url URL_FP8 --data gold.jsonl --out fp8.jsonl\n"
+            "  if-decision eval --compare bf16.jsonl fp8.jsonl")
 
 
 def _converter_marks_bidirectional(llama_cpp: str) -> bool:

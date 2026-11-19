@@ -27,7 +27,7 @@ from typing import Any
 import torch
 import torch.nn.functional as F
 
-IMPL = "startlux_prompt_bidirectional"
+IMPL = "if_decision_prompt_bidirectional"
 
 
 def check_body(body: Any) -> dict:
@@ -54,7 +54,7 @@ def check_body(body: Any) -> dict:
 def _attention(module, query, key, value, attention_mask, dropout=0.0, scaling=None, is_causal=None, **kwargs):
     """Attention of the full-attention layers of an enabled model. Without row lengths: the stock SDPA attention.
     With row lengths (from text_forward): no causal term; each row attends over its first n tokens."""
-    lengths = kwargs.pop("startlux_row_lengths", None)
+    lengths = kwargs.pop("if_decision_row_lengths", None)
     if lengths is None:
         from transformers.integrations.sdpa_attention import sdpa_attention_forward
         return sdpa_attention_forward(module, query, key, value, attention_mask, dropout=dropout, scaling=scaling,
@@ -136,7 +136,7 @@ def text_forward(body: Any, input_ids: torch.Tensor | None = None, attention_mas
             if min(lengths) < 1:
                 raise ValueError("every row needs at least one token")
         full_mask = None
-        extra = {"startlux_row_lengths": lengths}
+        extra = {"if_decision_row_lengths": lengths}
     linear_mask = body._update_linear_attn_mask(attention_mask, None)
     hidden = inputs_embeds
     position_embeddings = body.rotary_emb(hidden, position_ids)

@@ -17,7 +17,7 @@ deployment (prefix caching and chunked prefill on, 8,192 batched tokens per step
 | vLLM, Instant | prefix caching and chunked prefill off, no MTP, on every version | required | the Instant plugin needs every prompt prefilled whole in one step |
 | vLLM | `--logprobs-mode processed_logprobs --max-logprobs 26` | on | the read-out returns exactly the option letters |
 | vLLM | `--generation-config vllm` | on | keeps the folder's top-k and top-p away from the read-out |
-| vLLM | prompt-bidirectional plugin (`launch-vllm` sets `STARTLUX_PREFIX_BIDIR=1`), vLLM 0.19.1 or 0.31.0 | on for Instant | Instant models were trained to read the prompt bidirectionally; without it they answer as a different model |
+| vLLM | prompt-bidirectional plugin (`launch-vllm` sets `IF_DECISION_PREFIX_BIDIR=1`), vLLM 0.19.1 or 0.31.0 | on for Instant | Instant models were trained to read the prompt bidirectionally; without it they answer as a different model |
 | vLLM | thought waves (`--waves` / `--no-waves`; default: on for servers older than 0.31) | on with vLLM 0.19.1 | on 0.19.1 a thought that joins a running decode batch can turn into a loop; 0.31 fixed this |
 | vLLM | `--quantization fp8` | optional, 27B only | within 0.2 points at 27B; costs the 4B Instant model 1.3 DecideBench points and shifts the decision to think |
 | vLLM | `--kv-cache-dtype fp8` | off | refused by the plugin, and it shifts the decision to think |
@@ -89,7 +89,7 @@ The engine serves the decisions of both releases, with images and long inputs:
 | release | folders | how it answers |
 |---|---|---|
 | v1.1 | Instant and AutoThink folders (0.8B to 27B) | as above |
-| v1 | `decision_config.json` with `"format": "StartLux-Decision-v1"` (0.8B, 2B, 4B, 9B, 27B and 35B-A3B) | one pass by default, with the same prompts as v1.1. A request may still set `think_mode` to `auto` or `always`, but v1 was not trained to think |
+| v1 | `decision_config.json` with `"format": "IF-Decision-v1"` (0.8B, 2B, 4B, 9B, 27B and 35B-A3B) | one pass by default, with the same prompts as v1.1. A request may still set `think_mode` to `auto` or `always`, but v1 was not trained to think |
 
 Images work for both releases on vLLM 0.31, transformers, llama.cpp (with an mmproj file) and MLX (mlx-vlm folders),
 and the 256K context on vLLM 0.31 and transformers. The v1 4B folder, served by this engine, read 12 image questions
@@ -102,7 +102,7 @@ read-out temperatures of each folder, and for AutoThink the gate 0.9, budget 4,0
 the loop detector between them, the last 4,000 characters of the thought read after it, think temperature 1.0 and the
 mixture 0.75. On vLLM 0.31 the defaults change how the thought is produced, not the decision rule: the thought is one
 streamed request, prefix caching is on and MTP proposes 3 tokens per step (see Deployment settings). The engine's default
-gate is now 0.6, so serve with `--gate 0.9` on vLLM and use `startlux-decide eval` on the benchmark's requests;
+gate is now 0.6, so serve with `--gate 0.9` on vLLM and use `if-decision eval` on the benchmark's requests;
 [benchmarks.md](benchmarks.md) describes the measurement of accuracy and latency, and
 [engines.md](engines.md) lists where this package differs from the code of those runs (answers' confidence
 field, usage counts and edge cases; never the probabilities).
