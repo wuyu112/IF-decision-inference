@@ -1,0 +1,10 @@
+This distribution includes source derived from StartLuxLabs/StartLux-Decision:
+https://github.com/StartLuxLabs/StartLux-Decision
+
+Upstream package version: 1.1.0
+Upstream licence: Apache License 2.0
+Public upstream commit checked during release:
+a99977d9332decc9fb27a2488b4a83b533b6cd5f
+
+The runtime copy includes local operational changes in cli.py, launch.py,
+server.py, and serving.py, documented in README.md.
