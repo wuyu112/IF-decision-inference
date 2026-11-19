@@ -20,11 +20,25 @@ def validate(response: dict) -> None:
     noul=answers["urgent"]
     assert noul["type"]=="noul" and 0<=noul["noul"]<=1
 
+def validate_wide(response: dict, expected: set[str]) -> None:
+    answer=response["answers"]["wide"]
+    assert answer["type"]=="choice"
+    probs=answer["probabilities"]
+    assert set(probs)==expected
+    assert answer["choice"] in expected
+    assert all(isinstance(v,(int,float)) and 0<=v<=1 for v in probs.values())
+    assert abs(sum(probs.values())-1)<0.01
+    assert probs[answer["choice"]]==max(probs.values())
+
 def main() -> None:
     p=argparse.ArgumentParser();p.add_argument("--base-url",default="http://127.0.0.1:18080");a=p.parse_args()
     payload={"model":"IF-decision-27b-v1","state":{"ticket":"Charged twice and order remains unpaid."},"questions":{
       "route":{"type":"choice","instructions":"Choose the handling team.","criteria":{"账单":"Billing and refunds","shipping":"Delivery","tech-support":"Application support"}},
       "urgent":{"type":"noul","instructions":"Should this be handled today?"}}}
     out=post(a.base_url,payload);validate(out)
-    print(json.dumps(out,ensure_ascii=False,sort_keys=True))
+    wide={f"option-{i:02d}":f"Candidate number {i}" for i in range(29)}
+    wide_out=post(a.base_url,{"model":"IF-decision-27b-v1","state":"Select the candidate that best fits the evidence.","questions":{
+      "wide":{"type":"choice","instructions":"Choose one candidate.","criteria":wide}}})
+    validate_wide(wide_out,set(wide))
+    print(json.dumps({"ordinary":out,"wide_29":wide_out},ensure_ascii=False,sort_keys=True))
 if __name__=="__main__":main()

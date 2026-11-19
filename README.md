@@ -23,16 +23,39 @@ configurable vLLM max-num-seqs. The full resulting source is included here.
 - GPU memory utilization: 0.90
 - max-num-seqs: 8
 - Prefix caching and chunked prefill: disabled
-- Native option capacity: 26
+- Native option capacity per model pass: 26
 
 Full-attention layers occur every fourth layer (zero-based 3, 7, …, 63).
 The plugin makes the prompt bidirectional in those full-attention layers. It
 does not make every model layer bidirectional. Decision probabilities are read
 from the A–Z option logits and mapped reversibly to the original option keys.
 
-Requests above 26 options must be rejected as Unsupported for the formal
-Decision Index run. The release workflow provides a capacity proxy for that
-policy; grouped multi-pass inference is not claimed as equivalent.
+Choice requests above 26 options use the versioned wide-choice path inherited
+from StartLux-Decision: near-equal groups of at most 25 options are all scored,
+the best 3 per group advance, and at most 26 finalists are scored in a final
+pass. Finalists share 0.999 probability mass according to the final pass. Every
+non-finalist remains in the response and shares 0.001 in proportion to its
+first-round probability. The response therefore contains one finite,
+normalised probability for every original option key.
+
+## Decision Index integration
+
+Decision Index accepts custom inference through its built-in HTTP engine. Start
+this server, then run the unmodified public kit against `/v1/systemone`:
+
+    python -m decision_index pipeline \
+      --engine http \
+      --option base_url=http://127.0.0.1:18080 \
+      --option model=IF-decision-27b-v1 \
+      --suite /path/to/suite-0.3 \
+      --out /path/to/run \
+      --edition 0.3 --compact
+
+The server receives only the kit's `state` and `questions`. It does not inspect
+benchmark identifiers, source metadata, or expected answers. Original option
+keys are mapped reversibly to A-Z for read-out and restored in the response.
+The kit validates that every question is answered, every original option has a
+finite probability, probabilities sum to one, and `choice` is an original key.
 
 ## Clean installation
 
@@ -58,6 +81,9 @@ Check health and run the protocol test:
 
     curl -fsS http://127.0.0.1:18080/health
     python tests/reproduce_request.py --base-url http://127.0.0.1:18080
+
+The protocol test covers ordinary choice/noul output and a 29-option request;
+the latter must return all 29 original keys with a normalised distribution.
 
 ## API
 
